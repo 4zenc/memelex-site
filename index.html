@@ -18,7 +18,7 @@
       height: 100vh;
       text-align: center;
     }
-    #connectBtn {
+    #walletBtn {
       position: absolute;
       top: 20px;
       right: 20px;
@@ -66,7 +66,7 @@
 </head>
 <body>
   <h1>MemeLex 🚀</h1>
-  <button id="connectBtn">Connect</button>
+  <button id="walletBtn">Connect</button>
 
   <input id="tokenInput" placeholder="Paste your token address or name..." />
   <button id="promoteBtn" disabled>Promote (0.1 SOL)</button>
@@ -81,45 +81,46 @@
     const siteWallet = "3UjQZNbeJBxwamQXrGoSQFfMNyEif96GqhUYMvipaLiQ";
     const promoteBtn = document.getElementById("promoteBtn");
     const tokenInput = document.getElementById("tokenInput");
-    const connectBtn = document.getElementById("connectBtn");
+    const walletBtn = document.getElementById("walletBtn");
     const successBox = document.getElementById("successBox");
 
     let walletPublicKey = null;
 
-    window.onload = async () => {
+    async function connectWallet() {
       if (window.solana && window.solana.isPhantom) {
         try {
           const resp = await window.solana.connect();
           walletPublicKey = resp.publicKey;
-          connectBtn.innerText = "Connected";
+          walletBtn.innerText = `${walletPublicKey.toString().slice(0, 4)}...${walletPublicKey.toString().slice(-4)}`;
         } catch (err) {
-          console.log("Wallet connection cancelled");
-        }
-      }
-    };
-
-    connectBtn.onclick = async () => {
-      if (window.solana && window.solana.isPhantom) {
-        try {
-          const resp = await window.solana.connect();
-          walletPublicKey = resp.publicKey;
-          connectBtn.innerText = "Connected";
-        } catch (err) {
-          alert("Phantom connection rejected.");
+          alert("Connection rejected");
         }
       } else {
-        alert("Please install Phantom Wallet to use this site.");
+        alert("Install Phantom Wallet to use this site.");
+      }
+    }
+
+    async function disconnectWallet() {
+      try {
+        await window.solana.disconnect();
+        walletPublicKey = null;
+        walletBtn.innerText = "Connect";
+      } catch (err) {
+        console.error("Disconnect failed", err);
+      }
+    }
+
+    walletBtn.onclick = async () => {
+      if (!walletPublicKey) {
+        await connectWallet();
+      } else {
+        await disconnectWallet();
       }
     };
 
     tokenInput.addEventListener("input", () => {
-      if (tokenInput.value.trim() !== "") {
-        promoteBtn.classList.add("enabled");
-        promoteBtn.disabled = false;
-      } else {
-        promoteBtn.classList.remove("enabled");
-        promoteBtn.disabled = true;
-      }
+      promoteBtn.disabled = tokenInput.value.trim() === "";
+      promoteBtn.classList.toggle("enabled", tokenInput.value.trim() !== "");
     });
 
     promoteBtn.onclick = async () => {
@@ -127,6 +128,7 @@
       const connection = new solanaWeb3.Connection(solanaWeb3.clusterApiUrl("mainnet-beta"), "confirmed");
       const recipient = new solanaWeb3.PublicKey(siteWallet);
       const amount = solanaWeb3.LAMPORTS_PER_SOL * 0.1;
+
       const transaction = new solanaWeb3.Transaction().add(
         solanaWeb3.SystemProgram.transfer({
           fromPubkey: walletPublicKey,
@@ -136,8 +138,7 @@
       );
 
       transaction.feePayer = walletPublicKey;
-      const blockhash = await connection.getRecentBlockhash();
-      transaction.recentBlockhash = blockhash.blockhash;
+      transaction.recentBlockhash = (await connection.getRecentBlockhash()).blockhash;
 
       try {
         const signed = await window.solana.signTransaction(transaction);
@@ -154,6 +155,7 @@
         promoteBtn.disabled = true;
         promoteBtn.classList.remove("enabled");
       } catch (e) {
+        console.error(e);
         alert("Transaction failed or cancelled.");
       }
     };
