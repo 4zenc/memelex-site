@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MemeLex - Promote Your Meme Token</title>
+  <link rel="icon" href="https://cryptologos.cc/logos/solana-sol-logo.png?v=026" />
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      text-align: center;
+    }
+    #connectBtn {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      padding: 10px 20px;
+      background: #14f195;
+      color: black;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    input {
+      padding: 12px;
+      border-radius: 8px;
+      width: 300px;
+      font-size: 16px;
+      border: none;
+      margin-top: 20px;
+      outline: none;
+    }
+    button#promoteBtn {
+      margin-top: 20px;
+      padding: 12px 20px;
+      font-size: 18px;
+      background: #ff9f1c;
+      color: black;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      opacity: 0.6;
+    }
+    button#promoteBtn.enabled {
+      opacity: 1;
+    }
+    .successBox {
+      margin-top: 30px;
+      background: linear-gradient(135deg, #00b09b, #96c93d);
+      padding: 20px;
+      border-radius: 12px;
+      color: white;
+      font-weight: bold;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>MemeLex 🚀</h1>
+  <button id="connectBtn">Connect</button>
+
+  <input id="tokenInput" placeholder="Paste your token address or name..." />
+  <button id="promoteBtn" disabled>Promote (0.1 SOL)</button>
+
+  <div class="successBox" id="successBox">Sent! Shilling Getting Started!</div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.73.2/lib/index.iife.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <script>
+    emailjs.init("bZaLKYV0Dg_-4X8sj");
+
+    const siteWallet = "3UjQZNbeJBxwamQXrGoSQFfMNyEif96GqhUYMvipaLiQ";
+    const promoteBtn = document.getElementById("promoteBtn");
+    const tokenInput = document.getElementById("tokenInput");
+    const connectBtn = document.getElementById("connectBtn");
+    const successBox = document.getElementById("successBox");
+
+    let walletPublicKey = null;
+
+    window.onload = async () => {
+      if (window.solana && window.solana.isPhantom) {
+        try {
+          const resp = await window.solana.connect();
+          walletPublicKey = resp.publicKey;
+          connectBtn.innerText = "Connected";
+        } catch (err) {
+          console.log("Wallet connection cancelled");
+        }
+      }
+    };
+
+    connectBtn.onclick = async () => {
+      if (window.solana && window.solana.isPhantom) {
+        try {
+          const resp = await window.solana.connect();
+          walletPublicKey = resp.publicKey;
+          connectBtn.innerText = "Connected";
+        } catch (err) {
+          alert("Phantom connection rejected.");
+        }
+      } else {
+        alert("Please install Phantom Wallet to use this site.");
+      }
+    };
+
+    tokenInput.addEventListener("input", () => {
+      if (tokenInput.value.trim() !== "") {
+        promoteBtn.classList.add("enabled");
+        promoteBtn.disabled = false;
+      } else {
+        promoteBtn.classList.remove("enabled");
+        promoteBtn.disabled = true;
+      }
+    });
+
+    promoteBtn.onclick = async () => {
+      if (!walletPublicKey) return alert("Connect Phantom wallet first.");
+      const connection = new solanaWeb3.Connection(solanaWeb3.clusterApiUrl("mainnet-beta"), "confirmed");
+      const recipient = new solanaWeb3.PublicKey(siteWallet);
+      const amount = solanaWeb3.LAMPORTS_PER_SOL * 0.1;
+      const transaction = new solanaWeb3.Transaction().add(
+        solanaWeb3.SystemProgram.transfer({
+          fromPubkey: walletPublicKey,
+          toPubkey: recipient,
+          lamports: amount
+        })
+      );
+
+      transaction.feePayer = walletPublicKey;
+      const blockhash = await connection.getRecentBlockhash();
+      transaction.recentBlockhash = blockhash.blockhash;
+
+      try {
+        const signed = await window.solana.signTransaction(transaction);
+        const txid = await connection.sendRawTransaction(signed.serialize());
+        await connection.confirmTransaction(txid);
+
+        await emailjs.send("service_5z5jy1m", "template_pjn64et", {
+          token_address: tokenInput.value.trim(),
+          txid: txid
+        });
+
+        successBox.style.display = "block";
+        tokenInput.value = "";
+        promoteBtn.disabled = true;
+        promoteBtn.classList.remove("enabled");
+      } catch (e) {
+        alert("Transaction failed or cancelled.");
+      }
+    };
+  </script>
+</body>
+</html>
